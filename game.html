@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ТАПАЛКА</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Oswald:wght@300;400;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131c;
+    --accent: #ff3c5f;
+    --accent2: #ff8c00;
+    --glow: rgba(255,60,95,0.4);
+    --text: #f0f0f5;
+    --muted: #555570;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Oswald', sans-serif;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,60,95,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,60,95,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 20px 36px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── HUD ─── */
+  .hud {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .hud-box {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid rgba(255,60,95,0.18);
+    border-radius: 12px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+
+  .hud-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+
+  .hud-value {
+    font-family: 'Black Ops One', sans-serif;
+    font-size: 26px;
+    line-height: 1.1;
+    color: var(--text);
+  }
+
+  #timer-value { color: var(--accent); }
+  #timer-value.urgent { animation: blink 0.4s infinite alternate; }
+
+  /* ─── Прогресс таймера ─── */
+  .timer-bar-wrap {
+    width: 100%;
+    height: 3px;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  #timer-bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 4px;
+    transition: width 1s linear;
+  }
+
+  /* ─── Большой счёт ─── */
+  .score-wrap { text-align: center; }
+
+  .score-label {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  #score-big {
+    font-family: 'Black Ops One', sans-serif;
+    font-size: 80px;
+    line-height: 1;
+    color: var(--text);
+    text-shadow: 0 0 30px var(--glow);
+    transition: transform 0.06s;
+  }
+
+  #score-big.bump { transform: scale(1.18); }
+
+  /* ─── Кнопка тапа ─── */
+  .tap-area {
+    width: 210px;
+    height: 210px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .tap-ring {
+    position: absolute;
+    inset: -10px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    opacity: 0;
+    animation: ring-pulse 2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .tap-btn {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 35%, #ff5577 0%, #b80028 100%);
+    border: none;
+    outline: none;
+    box-shadow:
+      0 8px 32px rgba(255,60,95,0.5),
+      inset 0 4px 12px rgba(255,255,255,0.18),
+      inset 0 -4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.07s cubic-bezier(.2,.8,.3,1.4), box-shadow 0.07s;
+    position: relative;
+    z-index: 1;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tap-btn .icon {
+    font-size: 72px;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .tap-btn.pressed {
+    transform: scale(0.86);
+    box-shadow:
+      0 0 0 18px rgba(255,60,95,0.12),
+      0 2px 10px rgba(255,60,95,0.3),
+      inset 0 6px 18px rgba(0,0,0,0.35);
+  }
+
+  /* ─── +1 поп ─── */
+  .pop {
+    position: fixed;
+    font-family: 'Black Ops One', sans-serif;
+    font-size: 24px;
+    color: var(--accent);
+    text-shadow: 0 0 8px var(--glow);
+    pointer-events: none;
+    z-index: 200;
+    animation: pop-fly 0.65s ease-out forwards;
+  }
+
+  /* ─── Экран старта ─── */
+  #screen-start {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    z-index: 100;
+    text-align: center;
+    padding: 24px;
+  }
+
+  .title {
+    font-family: 'Black Ops One', sans-serif;
+    font-size: 64px;
+    color: var(--accent);
+    text-shadow: 0 0 40px var(--glow), 0 0 80px rgba(255,60,95,0.3);
+    letter-spacing: 6px;
+    line-height: 1;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    letter-spacing: 5px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .desc {
+    font-size: 15px;
+    color: #999;
+    max-width: 260px;
+    line-height: 1.7;
+    font-weight: 300;
+    margin-top: 4px;
+  }
+
+  .start-btn {
+    margin-top: 12px;
+    padding: 16px 52px;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Black Ops One', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 0 30px var(--glow);
+    transition: transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .start-btn:active { transform: scale(0.93); }
+
+  /* ─── Экран конца ─── */
+  #screen-end {
+    position: fixed; inset: 0;
+    background: rgba(10,10,15,0.96);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    z-index: 100;
+    text-align: center;
+    padding: 24px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  #screen-end.show { display: flex; }
+
+  .end-title {
+    font-family: 'Black Ops One', sans-serif;
+    font-size: 32px;
+    color: var(--text);
+    letter-spacing: 3px;
+  }
+
+  #result-score {
+    font-family: 'Black Ops One', sans-serif;
+    font-size: 90px;
+    color: var(--accent);
+    text-shadow: 0 0 40px var(--glow);
+    line-height: 1;
+  }
+
+  .result-label {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: -8px;
+  }
+
+  #result-comment {
+    font-size: 16px;
+    color: #aaa;
+    max-width: 260px;
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  .end-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 280px;
+    margin-top: 8px;
+  }
+
+  .btn-main {
+    padding: 15px;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Black Ops One', sans-serif;
+    font-size: 18px;
+    letter-spacing: 1px;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    box-shadow: 0 0 20px var(--glow);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-ghost {
+    padding: 13px;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    border: 1px solid var(--muted);
+    border-radius: 14px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ─── Анимации ─── */
+  @keyframes pop-fly {
+    0%   { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-90px) scale(1.6); }
+  }
+
+  @keyframes ring-pulse {
+    0%, 100% { opacity: 0; transform: scale(1); }
+    50%       { opacity: 0.35; transform: scale(1.1); }
+  }
+
+  @keyframes blink {
+    from { opacity: 1; }
+    to   { opacity: 0.3; }
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%     { transform: translateX(-6px); }
+    40%     { transform: translateX(6px); }
+    60%     { transform: translateX(-4px); }
+    80%     { transform: translateX(4px); }
+  }
+
+  .shake { animation: shake 0.35s ease; }
+</style>
+</head>
+<body>
+
+<!-- ══ ЭКРАН СТАРТА ══ -->
+<div id="screen-start">
+  <div class="title">TAP</div>
+  <div class="subtitle">тапалка 3000</div>
+  <p class="desc">Тапай по кнопке как можно быстрее!<br>У тебя есть <strong style="color:var(--accent)">30 секунд</strong>.</p>
+  <button class="start-btn" id="start-btn">▶ СТАРТ</button>
+</div>
+
+<!-- ══ ЭКРАН КОНЦА ══ -->
+<div id="screen-end">
+  <div class="end-title">ВРЕМЯ ВЫШЛО!</div>
+  <div id="result-score">0</div>
+  <div class="result-label">тапов</div>
+  <div id="result-comment"></div>
+  <div class="end-btns">
+    <button class="btn-main" id="restart-btn">🔄 ЕЩЁ РАЗ</button>
+    <button class="btn-ghost" id="close-btn">✕ ЗАКРЫТЬ</button>
+  </div>
+</div>
+
+<!-- ══ ОСНОВНОЙ ЭКРАН ══ -->
+<div id="app">
+
+  <div class="hud">
+    <div class="hud-box">
+      <div class="hud-label">Счёт</div>
+      <div class="hud-value" id="hud-score">0</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Время</div>
+      <div class="hud-value" id="timer-value">30</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Тап/сек</div>
+      <div class="hud-value" id="tps">0</div>
+    </div>
+  </div>
+
+  <div class="timer-bar-wrap">
+    <div id="timer-bar"></div>
+  </div>
+
+  <div class="score-wrap">
+    <div class="score-label">тапов</div>
+    <div id="score-big">0</div>
+  </div>
+
+  <div class="tap-area" id="tap-area">
+    <div class="tap-ring"></div>
+    <div class="tap-btn" id="tap-btn">
+      <span class="icon">👆</span>
+    </div>
+  </div>
+
+  <div></div>
+</div>
+
+<script>
+  // ── Telegram Web App ──
+  const tg = window.Telegram?.WebApp || null;
+  if (tg) { tg.ready(); tg.expand(); }
+
+  const DURATION = 30;
+
+  let score       = 0;
+  let timeLeft    = DURATION;
+  let active      = false;
+  let timerInterval = null;
+  let tpsInterval   = null;
+  let tapsThisSec   = 0;
+
+  const screenStart   = document.getElementById('screen-start');
+  const screenEnd     = document.getElementById('screen-end');
+  const tapArea       = document.getElementById('tap-area');
+  const tapBtn        = document.getElementById('tap-btn');
+  const hudScore      = document.getElementById('hud-score');
+  const scoreBig      = document.getElementById('score-big');
+  const timerEl       = document.getElementById('timer-value');
+  const timerBar      = document.getElementById('timer-bar');
+  const tpsEl         = document.getElementById('tps');
+  const resultScore   = document.getElementById('result-score');
+  const resultComment = document.getElementById('result-comment');
+
+  // ── Старт ──
+  function startGame() {
+    score = 0; timeLeft = DURATION; tapsThisSec = 0; active = true;
+
+    hudScore.textContent  = '0';
+    scoreBig.textContent  = '0';
+    timerEl.textContent   = DURATION;
+    timerEl.classList.remove('urgent');
+    timerBar.style.width  = '100%';
+    timerBar.style.background = 'linear-gradient(90deg, #ff8c00, #ff3c5f)';
+    tpsEl.textContent = '0';
+
+    screenStart.style.display = 'none';
+    screenEnd.classList.remove('show');
+
+    timerInterval = setInterval(tickTimer, 1000);
+    tpsInterval   = setInterval(tickTps, 1000);
+  }
+
+  function tickTimer() {
+    timeLeft--;
+    timerEl.textContent = timeLeft;
+    timerBar.style.width = (timeLeft / DURATION * 100) + '%';
+
+    if (timeLeft <= 5) {
+      timerEl.classList.add('urgent');
+      timerBar.style.background = '#ff2020';
+      tapBtn.classList.remove('shake');
+      void tapBtn.offsetWidth;
+      tapBtn.classList.add('shake');
+    } else if (timeLeft <= 10) {
+      timerBar.style.background = 'linear-gradient(90deg, #ff4400, #ff3c5f)';
+    }
+
+    if (timeLeft <= 0) endGame();
+  }
+
+  function tickTps() {
+    tpsEl.textContent = tapsThisSec;
+    tapsThisSec = 0;
+  }
+
+  // ── Тап ──
+  function handleTap(e) {
+    if (!active) return;
+    e.preventDefault();
+
+    score++;
+    tapsThisSec++;
+
+    hudScore.textContent = score;
+    scoreBig.textContent = score;
+
+    tapBtn.classList.add('pressed');
+    setTimeout(() => tapBtn.classList.remove('pressed'), 80);
+
+    scoreBig.classList.remove('bump');
+    void scoreBig.offsetWidth;
+    scoreBig.classList.add('bump');
+    setTimeout(() => scoreBig.classList.remove('bump'), 100);
+
+    spawnPop(e);
+  }
+
+  tapArea.addEventListener('touchstart', handleTap, { passive: false });
+  tapArea.addEventListener('mousedown',  handleTap);
+
+  function spawnPop(e) {
+    const el  = document.createElement('div');
+    el.className = 'pop';
+    el.textContent = '+1';
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    el.style.left = (x - 12 + (Math.random() - 0.5) * 44) + 'px';
+    el.style.top  = (y - 16) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 700);
+  }
+
+  // ── Конец ──
+  function endGame() {
+    active = false;
+    clearInterval(timerInterval);
+    clearInterval(tpsInterval);
+
+    resultScore.textContent   = score;
+    resultComment.textContent = getComment(score);
+    screenEnd.classList.add('show');
+
+    // Отправляем результат в бот
+    if (tg && tg.sendData) {
+      try { tg.sendData(JSON.stringify({ type: 'game_over', score })); }
+      catch(e) { console.warn('sendData:', e); }
+    }
+  }
+
+  function getComment(s) {
+    if (s >= 300) return '🔥 ЛЕГЕНДА! Пальцы из титана!';
+    if (s >= 200) return '💪 Почти машина! Отличный результат!';
+    if (s >= 100) return '👍 Хорошо! Но можно лучше.';
+    if (s >= 50)  return '😐 Неплохо... тренируйся ещё!';
+    return '🐢 Даже улитка быстрее...';
+  }
+
+  function restartGame() {
+    screenEnd.classList.remove('show');
+    startGame();
+  }
+
+  function closeGame() {
+    if (tg) tg.close();
+    else window.close();
+  }
+
+  document.getElementById('start-btn').addEventListener('click',   startGame);
+  document.getElementById('restart-btn').addEventListener('click', restartGame);
+  document.getElementById('close-btn').addEventListener('click',   closeGame);
+
+  // Блокируем прокрутку при свайпе
+  document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+</script>
+</body>
+</html>
